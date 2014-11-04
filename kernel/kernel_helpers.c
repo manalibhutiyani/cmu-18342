@@ -147,6 +147,9 @@ int wiring_handler(unsigned vec_num, void *handler_addr) {
      * check SWI vector contains the valid format:
      * that is ldr pc, [pc, positive #imm12]
      */
+    if (VERBOSE) {
+        printf("%x\n", *vector_addr);
+    } 
     unsigned offset = (*vector_addr) ^ 0xe59ff000;
     if (offset > 0xfff) {
         return -1;
@@ -180,15 +183,20 @@ void restore_handler(unsigned vec_num) {
 
 
 unsigned long get_OS_time() {
-    printf("entering get_OS_time\n");
+    if (VERBOSE) {
+        printf("entering get_OS_time\n");
+    }
     unsigned long *OS_time = (unsigned long *)OSTMR_ADDR(OSTMR_OSCR_ADDR);
-    printf("exiting get_OS_time, time = %lx\n", *OS_time);
-    return *OS_time;
+    unsigned long ret = *OS_time / OSTMR_FREQ * 1000;
+    if (VERBOSE) {
+        printf("exiting get_OS_time, time = %lu\n", ret);
+    }
+    return ret;
 }
 
-void set_sleep(unsigned time) {
+void set_sleep(unsigned millis) {
     /* covert unit from ms to hz */
-    unsigned time_in_hz =  time * 3686.4;
+    unsigned time_in_hz = millis / 1000 * OSTMR_FREQ;
     unsigned final_time = *((unsigned *)OSTMR_ADDR(OSTMR_OSCR_ADDR)) + time_in_hz;
     /* write the value into OSMR_0 */
     *((unsigned *)OSTMR_ADDR(OSTMR_OSMR_ADDR(0))) = final_time;

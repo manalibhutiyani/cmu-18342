@@ -17,5 +17,6 @@ void set_sleep(unsigned);
 
 #define UBOOT_HANDLER_ADDR 0x5c0009c0
 #define KERNEL_ERROR 	   0x0badc0de   /* unrecognized instruction error ret */
+#define VERBOSE  1
 
 #endif
