@@ -20,13 +20,29 @@ unsigned *uboot_handler_addr[NUM_EXCEPTIONS - 1];
 /* only backup the first two instructions */
 unsigned instruction_backup[NUM_EXCEPTIONS - 1][2];
 
+#define VALUE(x) *((unsigned *)x)
+
 /*
  * This is the handler for IRQ interrupt
  * It first find which devise triggered the interrupt and
  * do corresponding task
  */
 int C_IRQ_handler(unsigned swi_number, unsigned *regs) {
-    printf("C_IRQ_handler: entering\n");
+//    printf("*****    C_IRQ_handler: entering\n");
+
+    /* find out if the timer cause this interrupt */
+    if (VALUE(INT_ICPR_ADDR) & INT_OSTMR_0) {
+//        printf("ICMR_0 caused this interupt\n");
+
+        /* write 1 to this bit to acknowledge the match and clear it */
+        *((unsigned *)OSTMR_ADDR(OSTMR_OSSR_ADDR)) |= OSTMR_OSSR_M0;
+        /* disable channel 0 */
+        *((unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR)) &= (~OSTMR_OIER_E0);
+//        printf("OIER(%x) = %x\n", OSTMR_ADDR(OSTMR_OIER_ADDR), VALUE(OSTMR_ADDR(OSTMR_OIER_ADDR)));
+        /* reset other values that were changed in sleep */
+    }
+
+//    printf("C_IRQ_handler: exiting\n");
     return 0;
 }
 
@@ -35,7 +51,7 @@ int C_IRQ_handler(unsigned swi_number, unsigned *regs) {
  * Return the return value of the syscall.
  */
 int C_SWI_handler(unsigned swi_number, unsigned *regs) {
-    printf("entering C_SWI_handler with swi # = %d\n", swi_number);
+//    printf("entering C_SWI_handler with swi # = %d\n", swi_number);
     int return_val = 0;
     switch (swi_number) {
         case EXIT_SWI:
@@ -119,7 +135,7 @@ ssize_t c_write(int fd, const void *buf, size_t n) {
  * wrie in our own handler given the vecotr
  */
 int wiring_handler(unsigned vec_num, void *handler_addr) {
-    printf("entering wiring_handler with vec_num = %x\n", vec_num);
+//    printf("entering wiring_handler with vec_num = %x\n", vec_num);
     unsigned *vector_addr = (unsigned *)(vec_num * 0x4);
     /*
      * check SWI vector contains the valid format:
@@ -141,7 +157,7 @@ int wiring_handler(unsigned vec_num, void *handler_addr) {
     *(uboot_handler_addr[vec_num]) = 0xe51ff004;       // pc, [pc, #-4]
     *(uboot_handler_addr[vec_num] + 1) = (unsigned int)handler_addr;
 
-    printf("exiting wiring handler\n");
+//    printf("exiting wiring handler\n");
     return 1;
 }
 
@@ -168,14 +184,22 @@ void set_sleep(unsigned time) {
     /* covert unit from ms to hz */
     unsigned time_in_hz =  time * 3686.4;
     unsigned final_time = *((unsigned *)OSTMR_ADDR(OSTMR_OSCR_ADDR)) + time_in_hz;
-    /* write the value into OSMR0 */
+    /* write the value into OSMR_0 */
     *((unsigned *)OSTMR_ADDR(OSTMR_OSMR_ADDR(0))) = final_time;
     /* set the interrupt enable register OIER to enable channel 0*/
     *((unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR)) |= OSTMR_OIER_E0;
-    printf("set OSMR %x to %x\n", OSTMR_ADDR(OSTMR_OSMR_ADDR(0)), final_time);
-    /* ICLR */
+//    printf("set OSMR %x to %x\n", OSTMR_ADDR(OSTMR_OSMR_ADDR(0)), final_time);
+    /* set ICLR */
     *((unsigned *)0x40D00008) &= 0x0;
-    /* ICMR */
+    /* set ICMR */
     *((unsigned *)0x40D00004) |= 0x04000000;
 
+    /*
+    volatile unsigned *OIER = (unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR);
+    while (1) {
+        if (!(*OIER & OSTMR_OIER_E0)) {
+            break;
+        }
+    }
+    */
 }

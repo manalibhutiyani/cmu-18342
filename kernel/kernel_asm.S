@@ -31,8 +31,8 @@ switch_user_app:
 	@orr	r3, r3, #0xC0
 	@bic	r3, r3, #0x1F
 	@orr	r3, r3, #0x10
-	@orr	r3, r3, #0xC0
-	bic	r3, r3, #0x1F
+    bic r3, r3, #PSR_IRQ
+	bic	r3, r3, #PSR_MODE
 	orr	r3, r3, #PSR_MODE_USR
 	msr	cpsr, r3
 
