@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 
     if (wiring_SWI_handler(swi_handler) < 0) {
         printf("The instruction in the vector table is unrecognized\n");
-        return 0x0badc0de;
+        return ERROR;
     }
 
     return switch_user_app((void *)0xA2000000, argc, argv);

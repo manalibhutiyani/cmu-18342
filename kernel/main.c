@@ -26,12 +26,12 @@ int kmain(int argc, char** argv, uint32_t table)
     /* wiring SWI handler */
     if (wiring_handler(EX_SWI, swi_handler) < 0) {
         printf("The instruction in the vector table is unrecognized\n");
-        return 0x0badc0de;
+        return KERNEL_ERROR;
 	}
     /* wiring IRQ handler */
     if (wiring_handler(EX_IRQ, irq_handler) < 0) {
         printf("The instruction in the vector table is unrecognized\n");
-        return 0x0badc0de;
+        return KERNEL_ERROR;
 	}
 	switch_user_app(user_app_addr, argc, argv);
 

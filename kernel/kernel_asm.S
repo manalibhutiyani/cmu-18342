@@ -42,7 +42,9 @@ switch_user_app:
 	@ push backup sp, lr_svc (return to main)
 	push	{r4, r5}
 
-	@ push argc and argv
+	@ push argc and argv and null at argv[argc]
+	mov r4, #0
+	push {r4}
 	sub	r4, r1, #1
 loop:
 	ldr	r5, [r2, r4, lsl #2]
@@ -65,6 +67,8 @@ back_to_kernel:
 	@ restore the original handler
 	stmfd	sp!, {r0-r12, lr}
     mov     r0, #EX_SWI
+	bl	restore_handler
+    mov     r0, #EX_IRQ
 	bl	restore_handler
 	ldmfd	sp!, {r0-r12, lr}
 

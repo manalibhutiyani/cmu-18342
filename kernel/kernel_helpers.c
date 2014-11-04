@@ -11,6 +11,7 @@
 #include <arm/timer.h>
 #include <bits/swi.h>
 #include <bits/errno.h>
+#include <bits/fileno.h>
 #include "kernel_helpers.h"
 
 extern void back_to_kernel(int exit_value);
@@ -64,7 +65,7 @@ int C_SWI_handler(unsigned swi_number, unsigned *regs) {
             return_val = c_write(regs[0], (char *)regs[1], regs[2]);
             break;
         case TIME_SWI:
-            return_val = (int)get_OS_time();
+            return_val = (unsigned long)get_OS_time();
             break;
         case SLEEP_SWI:
             set_sleep((unsigned)regs[0]);
@@ -76,37 +77,38 @@ int C_SWI_handler(unsigned swi_number, unsigned *regs) {
 /*
  * Read from stdin
  */
-ssize_t c_read(int fd, void *buf, size_t n) {
+ssize_t c_read(int fd, void *buf, size_t count) {
     char c;
     char *ptr = (char *)buf;
+    size_t offset = 0;
 
-    if (fd != 0) {
+    if (fd != STDIN_FILENO) {
         return -EBADF;
     }
-    if (ptr < (char *)SDRAM_START || (ptr + n -1) > (char *)SDRAM_END) {
+    if ((unsigned)buf < SDRAM_START || ((unsigned)buf + count -1) > SDRAM_END) {
         return -EFAULT;
     }
 
-    ssize_t offset = 0;
-    while ((offset = (ssize_t)(ptr - (char *)buf)) < (ssize_t)n) {
+    
+    while (offset != count) {
         switch (c = getc()) {
             case 4:	// EOT
                 return offset;
             case 8:	// backspace
             case 127: // delete
-                if ((void *)ptr > buf) {
-                    ptr--;
+                if (offset > 0) {
+                    offset--;
                     puts("\b \b");
                 }
                 break;
             case '\n':
             case '\r':
-                *(ptr++) = '\n';
+                ptr[offset] = '\n';
                 putc('\n');
                 return offset;
             default:
                 putc(c);
-                *(ptr++) = c;
+                ptr[offset++] = c;
                 break;
         }
     }
@@ -116,19 +118,23 @@ ssize_t c_read(int fd, void *buf, size_t n) {
 /*
  * write to stdout
  */
-ssize_t c_write(int fd, const void *buf, size_t n) {
-    int i;
+ssize_t c_write(int fd, const void *buf, size_t count) {
+    size_t nleft = count;
+    size_t nwritten = 0;
     char *ptr = (char *)buf;
 
-    if (fd != 1) {
+    if (((unsigned)buf < SDRAM_START || ((unsigned)buf + count - 1) > SDRAM_END) &&
+        ((unsigned)buf + count - 1) > FLASH_END)
+        return -EFAULT;
+
+    if (fd != STDOUT_FILENO) {
         return -EBADF;
     }
 
-    for (i=(signed)n ; i>0 ; i--) {
-        putc(*ptr);
-        ptr++;
+    while (nleft > 0) {
+        putc(ptr[nwritten++]);
     }
-    return (ssize_t)(ptr - (char *)buf);
+    return nwritten;
 }
 
 /*
@@ -173,10 +179,10 @@ void restore_handler(unsigned vec_num) {
 }
 
 
-unsigned get_OS_time() {
+unsigned long get_OS_time() {
     printf("entering get_OS_time\n");
-    unsigned *OS_time = (unsigned *)OSTMR_ADDR(OSTMR_OSCR_ADDR);
-    printf("exiting get_OS_time, time = %x\n", *OS_time);
+    unsigned long *OS_time = (unsigned long *)OSTMR_ADDR(OSTMR_OSCR_ADDR);
+    printf("exiting get_OS_time, time = %lx\n", *OS_time);
     return *OS_time;
 }
 
