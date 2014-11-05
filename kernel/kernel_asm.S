@@ -43,8 +43,8 @@ switch_user_app:
 	push	{r4, r5}
 
 	@ push argc and argv and null at argv[argc]
-	@mov r4, #0
-	@push {r4}
+	mov r4, #0
+	push {r4}
 	sub	r4, r1, #1
 loop:
 	ldr	r5, [r2, r4, lsl #2]

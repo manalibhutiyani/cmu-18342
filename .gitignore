@@ -2,7 +2,11 @@
 *.o
 *.bin
 *.dep
+kernel/kernel
 skyeye.conf
 
 #lib
 *.a
+
+#dir
+tasks/bin/

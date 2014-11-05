@@ -9,6 +9,7 @@
 #include <arm/exception.h>
 #include <arm/interrupt.h>
 #include <arm/timer.h>
+#include <arm/reg.h>
 #include <bits/swi.h>
 #include <bits/errno.h>
 #include <bits/fileno.h>
@@ -119,7 +120,6 @@ ssize_t c_read(int fd, void *buf, size_t count) {
  * write to stdout
  */
 ssize_t c_write(int fd, const void *buf, size_t count) {
-    size_t nleft = count;
     size_t nwritten = 0;
     char *ptr = (char *)buf;
 
@@ -131,7 +131,7 @@ ssize_t c_write(int fd, const void *buf, size_t count) {
         return -EBADF;
     }
 
-    while (nleft > 0) {
+    while (nwritten != count) {
         putc(ptr[nwritten++]);
     }
     return nwritten;
@@ -186,23 +186,24 @@ unsigned long get_OS_time() {
     if (VERBOSE) {
         printf("entering get_OS_time\n");
     }
-    unsigned long *OS_time = (unsigned long *)OSTMR_ADDR(OSTMR_OSCR_ADDR);
-    unsigned long ret = *OS_time / OSTMR_FREQ * 1000;
+    uint32_t OS_time = reg_read(OSTMR_OSCR_ADDR);
+    OS_time = OS_time / OSTMR_FREQ_KHZ;
     if (VERBOSE) {
-        printf("exiting get_OS_time, time = %lu\n", ret);
+        printf("exiting get_OS_time, time = %lu\n", (unsigned long)OS_time);
     }
-    return ret;
+    return OS_time;
 }
 
 void set_sleep(unsigned millis) {
     /* covert unit from ms to hz */
-    unsigned time_in_hz = millis / 1000 * OSTMR_FREQ;
+    //unsigned time_in_hz = millis * (OSTMR_FREQ / 1000);
+    unsigned time_in_hz = millis * OSTMR_FREQ_KHZ;
     unsigned final_time = *((unsigned *)OSTMR_ADDR(OSTMR_OSCR_ADDR)) + time_in_hz;
     /* write the value into OSMR_0 */
     *((unsigned *)OSTMR_ADDR(OSTMR_OSMR_ADDR(0))) = final_time;
     /* set the interrupt enable register OIER to enable channel 0*/
     *((unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR)) |= OSTMR_OIER_E0;
-//    printf("set OSMR %x to %x\n", OSTMR_ADDR(OSTMR_OSMR_ADDR(0)), final_time);
+    //printf("set OSMR %x to %x\n", OSTMR_ADDR(OSTMR_OSMR_ADDR(0)), final_time);
     /* set ICLR */
     *((unsigned *)0x40D00008) &= 0x0;
     /* set ICMR */
