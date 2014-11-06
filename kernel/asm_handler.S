@@ -5,6 +5,7 @@
 @ Date:   10/20/2014 14:50
 
 #include <bits/swi.h>
+#include <arm/psr.h>
 
 	.file	"asm_handler.S"
 	.text
@@ -17,6 +18,10 @@ swi_handler:
 
 	@ store all non-banked user space registers
 	stmfd	sp!, {r0-r12, lr}
+
+	mrs r3, cpsr
+	bic r3, r3, #PSR_IRQ
+	msr cpsr, r3
 
 	@ backup spsr
 	mrs	r2, spsr

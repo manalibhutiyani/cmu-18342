@@ -14,6 +14,7 @@ extern void irq_handler(void *);
 
 uint32_t global_data;
 int version = 5;
+volatile uint32_t sys_time;   // system time incremented every 10ms
 
 int kmain(int argc, char** argv, uint32_t table)
 {
@@ -33,6 +34,9 @@ int kmain(int argc, char** argv, uint32_t table)
         printf("The instruction in the vector table is unrecognized\n");
         return KERNEL_ERROR;
 	}
+
+    init_timer();
+
 	switch_user_app(user_app_addr, argc, argv);
 
 	return 0;

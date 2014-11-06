@@ -7,8 +7,10 @@ int C_SWI_handler(unsigned, unsigned *);
 void restore_handler(unsigned);
 ssize_t c_read(int, void *, size_t);
 ssize_t c_write(int, const void *, size_t);
-unsigned long get_OS_time();
+uint32_t get_OS_time();
 void set_sleep(unsigned);
+void init_timer();
+void update_timer(uint32_t);
 
 #define SDRAM_START	0xa0000000	 /* SDRAM (64 MB) start address */
 #define SDRAM_END	0xa3ffffff	 /* SDRAM (64 MB) end address */

@@ -16,13 +16,12 @@
 #include "kernel_helpers.h"
 
 extern void back_to_kernel(int exit_value);
+extern volatile uint32_t sys_time;
 
 /* save the addresses of handlers */
 unsigned *uboot_handler_addr[NUM_EXCEPTIONS - 1];
 /* only backup the first two instructions */
 unsigned instruction_backup[NUM_EXCEPTIONS - 1][2];
-
-#define VALUE(x) *((unsigned *)x)
 
 /*
  * This is the handler for IRQ interrupt
@@ -30,18 +29,15 @@ unsigned instruction_backup[NUM_EXCEPTIONS - 1][2];
  * do corresponding task
  */
 int C_IRQ_handler(unsigned swi_number, unsigned *regs) {
-//    printf("*****    C_IRQ_handler: entering\n");
+    //printf("*****    C_IRQ_handler: entering\n");
 
     /* find out if the timer cause this interrupt */
-    if (VALUE(INT_ICPR_ADDR) & INT_OSTMR_0) {
-//        printf("ICMR_0 caused this interupt\n");
-
+    if (reg_read(INT_ICPR_ADDR) & (1 << INT_OSTMR_0)) {
+        //printf("ICMR_0 caused this interupt\n");
+        sys_time++;
         /* write 1 to this bit to acknowledge the match and clear it */
-        *((unsigned *)OSTMR_ADDR(OSTMR_OSSR_ADDR)) |= OSTMR_OSSR_M0;
-        /* disable channel 0 */
-        *((unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR)) &= (~OSTMR_OIER_E0);
-//        printf("OIER(%x) = %x\n", OSTMR_ADDR(OSTMR_OIER_ADDR), VALUE(OSTMR_ADDR(OSTMR_OIER_ADDR)));
-        /* reset other values that were changed in sleep */
+        reg_set(OSTMR_OSSR_ADDR, OSTMR_OSSR_M0);
+        update_timer(TIME_RESOLUTION);
     }
 
 //    printf("C_IRQ_handler: exiting\n");
@@ -66,7 +62,7 @@ int C_SWI_handler(unsigned swi_number, unsigned *regs) {
             return_val = c_write(regs[0], (char *)regs[1], regs[2]);
             break;
         case TIME_SWI:
-            return_val = (unsigned long)get_OS_time();
+            return_val = sys_time * TIME_RESOLUTION;
             break;
         case SLEEP_SWI:
             set_sleep((unsigned)regs[0]);
@@ -182,39 +178,34 @@ void restore_handler(unsigned vec_num) {
 }
 
 
-unsigned long get_OS_time() {
-    if (VERBOSE) {
-        printf("entering get_OS_time\n");
-    }
-    uint32_t OS_time = reg_read(OSTMR_OSCR_ADDR);
-    OS_time = OS_time / OSTMR_FREQ_KHZ;
-    if (VERBOSE) {
-        printf("exiting get_OS_time, time = %lu\n", (unsigned long)OS_time);
-    }
-    return OS_time;
+INLINE uint32_t get_OS_time() {
+    return TIME_RESOLUTION * sys_time;
 }
 
 void set_sleep(unsigned millis) {
-    /* covert unit from ms to hz */
-    //unsigned time_in_hz = millis * (OSTMR_FREQ / 1000);
-    unsigned time_in_hz = millis * OSTMR_FREQ_KHZ;
-    unsigned final_time = *((unsigned *)OSTMR_ADDR(OSTMR_OSCR_ADDR)) + time_in_hz;
-    /* write the value into OSMR_0 */
-    *((unsigned *)OSTMR_ADDR(OSTMR_OSMR_ADDR(0))) = final_time;
-    /* set the interrupt enable register OIER to enable channel 0*/
-    *((unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR)) |= OSTMR_OIER_E0;
-    //printf("set OSMR %x to %x\n", OSTMR_ADDR(OSTMR_OSMR_ADDR(0)), final_time);
-    /* set ICLR */
-    *((unsigned *)0x40D00008) &= 0x0;
-    /* set ICMR */
-    *((unsigned *)0x40D00004) |= 0x04000000;
-
-    /*
-    volatile unsigned *OIER = (unsigned *)OSTMR_ADDR(OSTMR_OIER_ADDR);
-    while (1) {
-        if (!(*OIER & OSTMR_OIER_E0)) {
-            break;
-        }
+    uint32_t deadline = get_OS_time() + millis;
+    volatile uint32_t now = get_OS_time();
+    while (deadline > now) {
+        now = get_OS_time();
     }
-    */
+}
+
+
+void init_timer() {
+    sys_time = 0;
+    if (VERBOSE)
+        printf("Entering init timer\n");
+    update_timer(TIME_RESOLUTION);
+    
+    reg_set(OSTMR_OIER_ADDR, OSTMR_OIER_E0);
+    reg_clear(INT_ICLR_ADDR, 1 << INT_OSTMR_0);     // make it irq
+    reg_set(INT_ICMR_ADDR, 1 << INT_OSTMR_0);       // unmask it
+}
+
+void update_timer(uint32_t millis) {
+    if (VERBOSE)
+        printf("Entering update timer\n");
+    uint32_t time_in_hz = millis * OSTMR_FREQ_KHZ;
+    uint32_t final_time = reg_read(OSTMR_OSCR_ADDR) + time_in_hz;
+    reg_write(OSTMR_OSMR_ADDR(0), final_time); // update match reg
 }

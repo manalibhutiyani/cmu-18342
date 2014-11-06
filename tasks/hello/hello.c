@@ -13,7 +13,8 @@ int main(int argc, char** argv)
 {
 	const char hello[] = "Hello World\r\n";
 	write(STDOUT_FILENO, hello, sizeof(hello) - 1);
-    sleep(5000);
+    while(1);
+    //sleep(5000);
 /*
     int c = 5;
     while(1) {
