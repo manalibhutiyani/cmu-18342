@@ -7,10 +7,11 @@ int C_SWI_handler(unsigned, unsigned *);
 void restore_handler(unsigned);
 ssize_t c_read(int, void *, size_t);
 ssize_t c_write(int, const void *, size_t);
-uint32_t get_OS_time();
+inline uint32_t get_OS_time();
 void set_sleep(unsigned);
 void init_timer();
-void update_timer(uint32_t);
+void update_timer(int, uint32_t);
+void period(int, void (*f)(void *), void *);
 
 #define SDRAM_START	0xa0000000	 /* SDRAM (64 MB) start address */
 #define SDRAM_END	0xa3ffffff	 /* SDRAM (64 MB) end address */
@@ -19,6 +20,11 @@ void update_timer(uint32_t);
 
 #define UBOOT_HANDLER_ADDR 0x5c0009c0
 #define KERNEL_ERROR 	   0x0badc0de   /* unrecognized instruction error ret */
-#define VERBOSE  0
+
+#define TIMER_0     0
+#define TIMER_1     1
+
+#define VERBOSE     0
+
 
 #endif

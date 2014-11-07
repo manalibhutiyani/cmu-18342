@@ -21,5 +21,6 @@
 /* The following are not linux compatible */
 #define TIME_SWI  (SWI_BASE + 6)
 #define SLEEP_SWI (SWI_BASE + 7)
+#define PERIOD_SWI (SWI_BASE + 8)
 
 #endif /* BITS_SWI_H */

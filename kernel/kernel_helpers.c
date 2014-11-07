@@ -15,6 +15,8 @@
 #include <bits/fileno.h>
 #include "kernel_helpers.h"
 
+#define NULL ( (void *) 0)
+
 extern void back_to_kernel(int exit_value);
 extern volatile uint32_t sys_time;
 
@@ -22,6 +24,11 @@ extern volatile uint32_t sys_time;
 unsigned *uboot_handler_addr[NUM_EXCEPTIONS - 1];
 /* only backup the first two instructions */
 unsigned instruction_backup[NUM_EXCEPTIONS - 1][2];
+
+/* global variabls for period function */
+int g_period = -1;
+void (*g_period_func)(void *) = NULL;
+void *g_period_var = NULL;
 
 /*
  * This is the handler for IRQ interrupt
@@ -33,11 +40,25 @@ int C_IRQ_handler(unsigned swi_number, unsigned *regs) {
 
     /* find out if the timer cause this interrupt */
     if (reg_read(INT_ICPR_ADDR) & (1 << INT_OSTMR_0)) {
+        //puts("C_IRQ_handler: OSTMR_0\n");
         //printf("ICMR_0 caused this interupt\n");
         sys_time++;
         /* write 1 to this bit to acknowledge the match and clear it */
         reg_set(OSTMR_OSSR_ADDR, OSTMR_OSSR_M0);
-        update_timer(TIME_RESOLUTION);
+        update_timer(TIMER_0, TIME_RESOLUTION);
+    } else if (reg_read(INT_ICPR_ADDR) & (1 << INT_OSTMR_1)) {
+        //puts("C_IRQ_handler: OSTMR_1\n");
+        /* write 1 to this bit to acknowledge the match and clear it */
+        reg_set(OSTMR_OSSR_ADDR, OSTMR_OSSR_M1);
+        if (g_period > 0 && g_period_func != NULL) {
+
+            puts((char *)g_period_var);
+
+            /* execute the function */
+            g_period_func(g_period_var);
+            /* reset the math register */
+            update_timer(TIMER_1, g_period);
+        }
     }
 
 //    printf("C_IRQ_handler: exiting\n");
@@ -67,6 +88,9 @@ int C_SWI_handler(unsigned swi_number, unsigned *regs) {
         case SLEEP_SWI:
             set_sleep((unsigned)regs[0]);
             break;
+        case PERIOD_SWI:
+            period((int)regs[0], (void *)regs[1], (void *)regs[2]);
+            break;
     }
     return return_val;
 }
@@ -86,7 +110,7 @@ ssize_t c_read(int fd, void *buf, size_t count) {
         return -EFAULT;
     }
 
-    
+
     while (offset != count) {
         switch (c = getc()) {
             case 4:	// EOT
@@ -145,7 +169,7 @@ int wiring_handler(unsigned vec_num, void *handler_addr) {
      */
     if (VERBOSE) {
         printf("%x\n", *vector_addr);
-    } 
+    }
     unsigned offset = (*vector_addr) ^ 0xe59ff000;
     if (offset > 0xfff) {
         return -1;
@@ -178,7 +202,7 @@ void restore_handler(unsigned vec_num) {
 }
 
 
-INLINE uint32_t get_OS_time() {
+inline uint32_t get_OS_time() {
     return TIME_RESOLUTION * sys_time;
 }
 
@@ -195,17 +219,38 @@ void init_timer() {
     sys_time = 0;
     if (VERBOSE)
         printf("Entering init timer\n");
-    update_timer(TIME_RESOLUTION);
-    
+    update_timer(TIMER_0, TIME_RESOLUTION);
+
+    /* enable channel 0 */
     reg_set(OSTMR_OIER_ADDR, OSTMR_OIER_E0);
     reg_clear(INT_ICLR_ADDR, 1 << INT_OSTMR_0);     // make it irq
     reg_set(INT_ICMR_ADDR, 1 << INT_OSTMR_0);       // unmask it
 }
 
-void update_timer(uint32_t millis) {
+void update_timer(int channel, uint32_t millis) {
     if (VERBOSE)
         printf("Entering update timer\n");
-    uint32_t time_in_hz = millis * OSTMR_FREQ_KHZ;
-    uint32_t final_time = reg_read(OSTMR_OSCR_ADDR) + time_in_hz;
-    reg_write(OSTMR_OSMR_ADDR(0), final_time); // update match reg
+    if (channel == TIMER_0 || channel == TIMER_1) {
+        uint32_t time_in_hz = millis * OSTMR_FREQ_KHZ;
+        uint32_t final_time = reg_read(OSTMR_OSCR_ADDR) + time_in_hz;
+        reg_write(OSTMR_OSMR_ADDR(channel), final_time); // update match reg
+    }
+}
+
+void period(int millis, void (*f)(void *), void *var) {
+    g_period = millis;
+    g_period_func = f;
+    g_period_var = var;
+
+    if (millis > 0 && f != NULL) {
+        update_timer(TIMER_1, TIME_RESOLUTION);
+        /* enable channel 1 */
+        reg_set(OSTMR_OIER_ADDR, OSTMR_OIER_E1);
+        reg_clear(INT_ICLR_ADDR, 1 << INT_OSTMR_1);     // make it irq
+        reg_set(INT_ICMR_ADDR, 1 << INT_OSTMR_1);       // unmask it
+    } else {
+        /* disable channel 1 */
+        reg_clear(OSTMR_OIER_ADDR, OSTMR_OIER_E1);
+        reg_clear(INT_ICMR_ADDR, 1 << INT_OSTMR_1);       // mask it
+    }
 }

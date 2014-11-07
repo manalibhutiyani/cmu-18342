@@ -38,7 +38,7 @@
 
 #define OSTMR_FREQ            3686400      /* Oscillator frequency in hz */
 #define OSTMR_FREQ_KHZ        3686.4       /* Oscillator frequency in Khz */
-#define TIME_RESOLUTION       10
+#define TIME_RESOLUTION       100
 #ifndef ASSEMBLER
 
 /* Add your C code here.  Put your group name at the top! */

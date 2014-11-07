@@ -35,7 +35,7 @@ int kmain(int argc, char** argv, uint32_t table)
         return KERNEL_ERROR;
 	}
 
-    init_timer();
+    //init_timer();
 
 	switch_user_app(user_app_addr, argc, argv);
 
