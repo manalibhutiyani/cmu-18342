@@ -20,37 +20,32 @@ switch_user_app:
 	@ r2 = argv
 
 	@ store the context
-	stmfd	sp!, {r0-r12, lr}
-	@ lr will be banked after changing mode, so put in r4
-	mov	r4, lr
-	@ r5 = the value which sp should be when returing to kernel
-	add	r5, sp, #4*14
+	stmfd	sp!, {r1-r12, lr}
+    @ backup sp
+    mov     r4, sp
 
-	@ switch to user mode with IRQs & FIQs masked
-	mrs	r3, cpsr
-	@orr	r3, r3, #0xC0
-	@bic	r3, r3, #0x1F
-	@orr	r3, r3, #0x10
-    bic r3, r3, #PSR_IRQ
-	bic	r3, r3, #PSR_MODE
-	orr	r3, r3, #PSR_MODE_USR
-	msr	cpsr, r3
+	@ switch to user mode with IRQs unmasked
+	mrs	    r3, cpsr
+    bic     r3, r3, #PSR_IRQ
+	bic	    r3, r3, #PSR_MODE
+	orr	    r3, r3, #PSR_MODE_USR
+	msr	    cpsr, r3
 
 	@ set the stack 0xa3000000
-	ldr	sp, =0xa3000000
+	ldr	    sp, =0xa3000000
 
 	@ push backup sp, lr_svc (return to main)
-	push	{r4, r5}
+	push	{r4}
 
 	@ push argc and argv and null at argv[argc]
-	mov r4, #0
-	push {r4}
-	sub	r4, r1, #1
+	mov     r4, #0
+	push    {r4}
+	sub	    r4, r1, #1
 loop:
-	ldr	r5, [r2, r4, lsl #2]
+	ldr	    r5, [r2, r4, lsl #2]
 	push 	{r5}
 	subs	r4, #1
-	bpl	loop
+	bpl	    loop
 	push	{r1}
 
 
@@ -67,16 +62,16 @@ back_to_kernel:
 	@ restore the original handler
 	stmfd	sp!, {r0-r12, lr}
     mov     r0, #EX_SWI
-	bl	restore_handler
+	bl      restore_handler
     mov     r0, #EX_IRQ
-	bl	restore_handler
+	bl	    restore_handler
 	ldmfd	sp!, {r0-r12, lr}
 
 	@ get the address to main
-	ldr	r1, =0xa3000000
+	ldr	    r1, =0xa3000000
 	@ restore sp and lr
-	ldr	sp, [r1, #-4]
-	ldr	lr, [r1, #-8]
+	ldr	    sp, [r1, #-4]
+	ldmfd	sp!, {r1-r12, lr}
 
 	@ return to main with r0 = exit value
-	bx	lr
+	bx	    lr

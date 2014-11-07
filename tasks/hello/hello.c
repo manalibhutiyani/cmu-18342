@@ -13,15 +13,5 @@ int main(int argc, char** argv)
 {
 	const char hello[] = "Hello World\r\n";
 	write(STDOUT_FILENO, hello, sizeof(hello) - 1);
-    while(1);
-    //sleep(5000);
-/*
-    int c = 5;
-    while(1) {
-        time();
-        c--;
-        if (c<0) break;
-    }
-*/
 	return 0;
 }
