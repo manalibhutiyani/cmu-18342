@@ -19,6 +19,7 @@
 
 extern void back_to_kernel(int exit_value);
 extern volatile uint32_t sys_time;
+extern uint32_t last_clock;
 
 /* save the addresses of handlers */
 unsigned *uboot_handler_addr[NUM_EXCEPTIONS - 1];
@@ -43,9 +44,10 @@ int C_IRQ_handler(unsigned swi_number, unsigned *regs) {
         //puts("C_IRQ_handler: OSTMR_0\n");
         //printf("ICMR_0 caused this interupt\n");
         sys_time++;
+        last_clock = reg_read(OSTMR_OSCR_ADDR);
         /* write 1 to this bit to acknowledge the match and clear it */
         reg_set(OSTMR_OSSR_ADDR, OSTMR_OSSR_M0);
-        update_timer(TIMER_0, TIME_RESOLUTION);
+        update_timer(TIMER_0, MILLIS_IN_MINUTE);
     } else if (reg_read(INT_ICPR_ADDR) & (1 << INT_OSTMR_1)) {
         //puts("C_IRQ_handler: OSTMR_1\n");
         /* write 1 to this bit to acknowledge the match and clear it */
@@ -83,7 +85,7 @@ int C_SWI_handler(unsigned swi_number, unsigned *regs) {
             return_val = c_write(regs[0], (char *)regs[1], regs[2]);
             break;
         case TIME_SWI:
-            return_val = sys_time * TIME_RESOLUTION;
+            return_val = get_OS_time();
             break;
         case SLEEP_SWI:
             set_sleep((unsigned)regs[0]);
@@ -202,8 +204,17 @@ void restore_handler(unsigned vec_num) {
 }
 
 
-inline uint32_t get_OS_time() {
-    return TIME_RESOLUTION * sys_time;
+uint32_t get_OS_time() {
+    volatile uint32_t sec = sys_time;
+    volatile uint32_t msec = (reg_read(OSTMR_OSCR_ADDR) - last_clock) / OSTMR_FREQ_KHZ;
+    //while (sys_time == sec);
+    //printf("%u\n", sys_time);
+    if (sys_time > sec) {
+        //printf("Aha Gocha!\n");
+        return sys_time * MILLIS_IN_MINUTE + (reg_read(OSTMR_OSCR_ADDR) - last_clock) / OSTMR_FREQ_KHZ; 
+    } else {
+        return sys_time * MILLIS_IN_MINUTE + msec;
+    }
 }
 
 void set_sleep(unsigned millis) {
@@ -217,14 +228,16 @@ void set_sleep(unsigned millis) {
 
 void init_timer() {
     sys_time = 0;
+    last_clock = reg_read(OSTMR_OSCR_ADDR);
     if (VERBOSE)
         printf("Entering init timer\n");
-    update_timer(TIMER_0, TIME_RESOLUTION);
+    update_timer(TIMER_0, MILLIS_IN_MINUTE);  // update every second
 
     /* enable channel 0 */
     reg_set(OSTMR_OIER_ADDR, OSTMR_OIER_E0);
     reg_clear(INT_ICLR_ADDR, 1 << INT_OSTMR_0);     // make it irq
     reg_set(INT_ICMR_ADDR, 1 << INT_OSTMR_0);       // unmask it
+
 }
 
 void update_timer(int channel, uint32_t millis) {

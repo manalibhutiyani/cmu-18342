@@ -13,8 +13,9 @@ extern void swi_handler(void *);
 extern void irq_handler(void *);
 
 uint32_t global_data;
+uint32_t last_clock;
 int version = 5;
-volatile uint32_t sys_time;   // system time incremented every 10ms
+volatile uint32_t sys_time;   // system time incremented every 1s
 
 int kmain(int argc, char** argv, uint32_t table)
 {
@@ -35,7 +36,7 @@ int kmain(int argc, char** argv, uint32_t table)
         return KERNEL_ERROR;
 	}
 
-    //init_timer();
+    init_timer();
 
 	switch_user_app(user_app_addr, argc, argv);
 
