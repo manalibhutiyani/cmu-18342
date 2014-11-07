@@ -12,6 +12,7 @@ void set_sleep(unsigned);
 void init_timer();
 void update_timer(int, uint32_t);
 void period(int, void (*f)(void *), void *);
+uint32_t sub(uint32_t, uint32_t);
 
 #define SDRAM_START	0xa0000000	 /* SDRAM (64 MB) start address */
 #define SDRAM_END	0xa3ffffff	 /* SDRAM (64 MB) end address */

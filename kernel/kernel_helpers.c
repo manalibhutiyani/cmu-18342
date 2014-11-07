@@ -205,21 +205,28 @@ void restore_handler(unsigned vec_num) {
 
 
 uint32_t get_OS_time() {
-    volatile uint32_t sec = sys_time;
-    volatile uint32_t msec = (reg_read(OSTMR_OSCR_ADDR) - last_clock) / OSTMR_FREQ_KHZ;
-    //while (sys_time == sec);
-    //printf("%u\n", sys_time);
+    uint32_t sec = sys_time;
+    uint32_t this_clock = reg_read(OSTMR_OSCR_ADDR);
+    uint32_t msec;
+    uint32_t res;
+
+
+    msec = sub(this_clock, last_clock) / OSTMR_FREQ_KHZ; // overflow-free sub
+    //printf("systime: %u, msec: %u\n", sys_time, msec);
+
     if (sys_time > sec) {
-        //printf("Aha Gocha!\n");
-        return sys_time * MILLIS_IN_MINUTE + (reg_read(OSTMR_OSCR_ADDR) - last_clock) / OSTMR_FREQ_KHZ; 
+        this_clock = reg_read(OSTMR_OSCR_ADDR);
+        res = sys_time * MILLIS_IN_MINUTE + (sub(this_clock, last_clock) / OSTMR_FREQ_KHZ);
+        return res; 
     } else {
-        return sys_time * MILLIS_IN_MINUTE + msec;
+        res = sys_time * MILLIS_IN_MINUTE + msec;
+        return res;
     }
 }
 
 void set_sleep(unsigned millis) {
     uint32_t deadline = get_OS_time() + millis;
-    volatile uint32_t now = get_OS_time();
+    uint32_t now = get_OS_time();
     while (deadline > now) {
         now = get_OS_time();
     }
@@ -228,6 +235,7 @@ void set_sleep(unsigned millis) {
 
 void init_timer() {
     sys_time = 0;
+    reg_write(OSTMR_OSCR_ADDR, 0xfffe0ff0);
     last_clock = reg_read(OSTMR_OSCR_ADDR);
     if (VERBOSE)
         printf("Entering init timer\n");
@@ -265,5 +273,16 @@ void period(int millis, void (*f)(void *), void *var) {
         /* disable channel 1 */
         reg_clear(OSTMR_OIER_ADDR, OSTMR_OIER_E1);
         reg_clear(INT_ICMR_ADDR, 1 << INT_OSTMR_1);       // mask it
+    }
+}
+
+uint32_t sub(uint32_t this, uint32_t that) {
+    if (this < that) {
+        // overflow occurred
+        //printf("overflow occured, this %u, that %u\n", this, that);
+        return ((UINT32_MAX - that) + 1 + this);
+        //printf("%u\n", msec);
+    } else {
+        return (this - that);
     }
 }

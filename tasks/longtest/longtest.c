@@ -20,6 +20,17 @@ uint32_t reg_read(size_t addr)
     return *((volatile uint32_t*)(PERIPHERAL_BASE + addr));
 }
 
+uint32_t sub(uint32_t this, uint32_t that) {
+    if (this < that) {
+        // overflow occurred
+        return ((UINT32_MAX - that) + 1 + this);
+        //printf("%u\n", msec);
+    } else {
+        return (this - that);
+    }
+}
+
+
 int main(int argc, char** argv)
 {
 	if (argc != 2) {
@@ -27,18 +38,21 @@ int main(int argc, char** argv)
     }
 	//int i;
     //int j = 0;
-    volatile uint32_t end_clock = 0;
+    uint32_t end_clock = 0;
     uint32_t end_clock_time;
     uint32_t end_time;
     uint32_t start_clock = reg_read(OSTMR_OSCR_ADDR);
     uint32_t start_time = time();
+    printf("OS clock start: %u\n", start_clock);
 
 
     sleep(atoi(argv[1]));
 
     end_clock = reg_read(OSTMR_OSCR_ADDR);
     end_time = time();
-    end_clock_time = (end_clock - start_clock) / OSTMR_FREQ_KHZ;
+
+    end_clock_time = sub(end_clock,start_clock) / OSTMR_FREQ_KHZ;
+    printf("OS clock end: %u\n", end_clock);
     printf("OS clock time interval: %u\n", end_clock_time);
     printf("Sys call time interval: %u\n", end_time - start_time);
 	return 0;
