@@ -1,10 +1,8 @@
-/** @file period.S
- *
- * @brief sleep sycall wrapper
- *
- * @author Kartik Subramanian <ksubrama@andrew.cmu.edu>
- * @date 2008-10-31
- */
+@ read.S: period sycall wrapper
+@
+@ Authors  : Hsueh-Hung Cheng (xuehung@gmail.com)
+@ Andrew ID: hsuehhuc
+@ Date     : 2014-11-07 16:51
 
 #include <asm.h>
 #include <bits/swi.h>

@@ -1,12 +1,14 @@
-
-/** @file hello.c
+/** @file game.c
  *
- * @brief Prints out Hello world using the syscall interface.
+ * @brief A simple snake game
  *
- * Links to libc.
+ * press i for UP
+ * press j for LEFT
+ * press l for RIGHT
+ * press k for DOWN
  *
- * @author Kartik Subramanian <ksubrama@andrew.cmu.edu>
- * @date   2008-10-29
+ * @author Hsueh-Hung Cheng <hsuehhuc@andrew.cmu.edu>
+ * @date   2014-11-07
  */
 #include <unistd.h>
 #include <stdio.h>
@@ -34,10 +36,13 @@
 #define DEAD    0
 #define ALIVE   1
 
+/*
+ * Game structure, which contains all information about this game
+ */
 typedef struct {
     /* additional space in the second dimension is for newline */
     char board[GAME_BOARD_H][GAME_BOARD_W + 1];
-    /* for telling puts when to end */
+    /* for telling puts when to stop printing */
     char end;
     /* save the position of the snake body */
     char snake[SNAKE_MAX_LEN][2];
@@ -60,7 +65,7 @@ typedef struct {
 Game g_game;
 
 /*
- * put_food - put a food in available space
+ * put_food - put a food in an available space
  */
 void put_food(Game *game) {
     unsigned seed = game->seed;
@@ -80,7 +85,13 @@ void put_food(Game *game) {
     game->board[food_pos_y][food_pos_x] = FOOD;
 }
 
-void my_func(void *var) {
+
+/*
+ * update_game - this function is executed periodically, and
+ *      its tasks includ moving the snake and update other
+ *      things on the game board
+ */
+void update_game(void *var) {
     Game *game = (Game *)var;
     int snake_length = game->snake_length;
     int snake_index = game->snake_index;
@@ -111,13 +122,6 @@ void my_func(void *var) {
     if (game->board[new_y][new_x] == SNAKE ||
             game->board[new_y][new_x] == WALL) {
         game->status = DEAD;
-        //int i;
-        /* update the screen */
-        /*
-        for (i = 0; i < GAME_BOARD_H; i++) {
-            memset(game->board[i] + 1, DEAD_SYM, GAME_BOARD_W - 2);
-        }
-        */
     } else {
         /* update the snake */
         if (++snake_index >= SNAKE_MAX_LEN) {
@@ -142,13 +146,15 @@ void my_func(void *var) {
 
         /* move the head */
         game->board[new_y][new_x] = SNAKE;
-
         game->snake_index = snake_index;
     }
     return;
 }
 
-
+/*
+ * init_game - this function is called once before the game starts
+ *      in order to initialize all members in Game structure
+ */
 void init_game(Game *game) {
     int i, j;
     // initialize the border and inside
@@ -185,8 +191,8 @@ int main(int argc, char** argv)
     char direction;
     int speed = INIT_SPEED;
     init_game(&g_game);
-    /* call my_func every speed mseconds */
-    period(speed, my_func, &g_game);
+    /* call update_game every speed mseconds */
+    period(speed, update_game, &g_game);
 
     printf("GAME START...\n");
 
@@ -194,26 +200,12 @@ int main(int argc, char** argv)
         g_game.seed = time();
         read(STDIN_FILENO, &command, 1);
         printf("\b \b");
-        /* check if command is valid */
-        direction = g_game.direction;
         /*
-        switch (command) {
-            case UP:
-                if (direction == DOWN) continue;
-                break;
-            case DOWN:
-                if (direction == UP) continue;
-                break;
-            case RIGHT:
-                if (direction == LEFT) continue;
-                break;
-            case LEFT:
-                if (direction == RIGHT) continue;
-                break;
-            default:
-                continue;
-        }
-        */
+         * check if command is valid
+         * for example, if the snake is heading left,
+         * command right is invalid
+         */
+        direction = g_game.direction;
         if (direction == DOWN && command == UP) {
             continue;
         } else if (direction == UP && command == DOWN) {
@@ -230,13 +222,21 @@ int main(int argc, char** argv)
         /* update the direction */
         g_game.direction = command;
 
-        /* speed up */
+        /*
+         * speed up
+         * when eating one food, the period of exectuing update_game
+         * is decreased. smaller value of speed means the snake moves
+         * faster
+         */
         int new_speed = INIT_SPEED - (SPEED_STEP * g_game.snake_length);
         if (speed != new_speed && speed > MAX_SPEED) {
             speed = new_speed;
             period(speed, my_func, &g_game);
         }
     }
+    /*
+     * uninstall the function
+     */
     period(-1, NULL, &g_game);
     printf("DEAD\n");
 	return 0;

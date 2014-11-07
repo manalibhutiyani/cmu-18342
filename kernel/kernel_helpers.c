@@ -211,7 +211,7 @@ uint32_t get_OS_time() {
     //printf("%u\n", sys_time);
     if (sys_time > sec) {
         //printf("Aha Gocha!\n");
-        return sys_time * MILLIS_IN_MINUTE + (reg_read(OSTMR_OSCR_ADDR) - last_clock) / OSTMR_FREQ_KHZ; 
+        return sys_time * MILLIS_IN_MINUTE + (reg_read(OSTMR_OSCR_ADDR) - last_clock) / OSTMR_FREQ_KHZ;
     } else {
         return sys_time * MILLIS_IN_MINUTE + msec;
     }
