@@ -9,6 +9,7 @@
  */
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define PERIPHERAL_BASE       0x40000000
 #define OSTMR_OSCR_ADDR       0x00A00010   /* OS Timer Count Register */
@@ -21,19 +22,20 @@ uint32_t reg_read(size_t addr)
 
 int main(int argc, char** argv)
 {
-	
-	int i;
-    int j = 0;
+	if (argc != 2) {
+        printf("Usage: go %s <sleep time in ms>\n", argv[0]);
+    }
+	//int i;
+    //int j = 0;
     volatile uint32_t end_clock = 0;
     uint32_t end_clock_time;
     uint32_t end_time;
     uint32_t start_clock = reg_read(OSTMR_OSCR_ADDR);
     uint32_t start_time = time();
 
-    for (i = 0; i < 900000000; i++) {
-        j++;
-        //tv = time();
-    }
+
+    sleep(atoi(argv[1]));
+
     end_clock = reg_read(OSTMR_OSCR_ADDR);
     end_time = time();
     end_clock_time = (end_clock - start_clock) / OSTMR_FREQ_KHZ;
