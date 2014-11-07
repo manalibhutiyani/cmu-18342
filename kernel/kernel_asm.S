@@ -20,11 +20,9 @@ switch_user_app:
 	@ r2 = argv
 
 	@ store the context
-	stmfd	sp!, {r0-r12, lr}
-	@ lr will be banked after changing mode, so put in r4
-	mov	r4, lr
-	@ r5 = the value which sp should be when returing to kernel
-	add	r5, sp, #4*14
+	stmfd	sp!, {r1-r12, lr}
+    @ backup sp
+    mov r4, sp
 
 	@ switch to user mode with IRQs & FIQs masked
 	mrs	r3, cpsr
@@ -40,7 +38,7 @@ switch_user_app:
 	ldr	sp, =0xa3000000
 
 	@ push backup sp, lr_svc (return to main)
-	push	{r4, r5}
+	push	{r4}
 
 	@ push argc and argv and null at argv[argc]
 	mov r4, #0
@@ -76,7 +74,7 @@ back_to_kernel:
 	ldr	r1, =0xa3000000
 	@ restore sp and lr
 	ldr	sp, [r1, #-4]
-	ldr	lr, [r1, #-8]
+	ldmfd	sp!, {r1-r12, lr}
 
 	@ return to main with r0 = exit value
 	bx	lr
